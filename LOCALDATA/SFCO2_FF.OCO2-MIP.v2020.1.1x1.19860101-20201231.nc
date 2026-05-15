@@ -1,0 +1,1 @@
+/scr/sci/stephens/ODATA/APOfwd/fluxes/SFCO2_FF.OCO2-MIP.v2020.1.1x1.19860101-20201231.nc

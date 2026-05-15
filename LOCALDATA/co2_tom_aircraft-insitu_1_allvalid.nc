@@ -1,0 +1,1 @@
+/scr/raf/stephens/ODATA/OBSPACK/obspack_co2_1_GLOBALVIEWplus_v6.1_2021-03-01/data/nc/co2_tom_aircraft-insitu_1_allvalid.nc

@@ -1,0 +1,1 @@
+/scr/raf/stephens/ODATA/GCP/GCP2024_inversions_1x1_version1_2_20241021/GCP2024_inversions_1x1_version1_2_20241021.nc
