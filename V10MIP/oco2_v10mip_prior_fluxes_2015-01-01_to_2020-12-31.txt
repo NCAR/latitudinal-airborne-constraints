@@ -1,0 +1,13 @@
+exp mod ocean land fossil
+unopt AMES -3.56 -0.874 9.745
+unopt BAKER -2.09 -2.336 9.745
+unopt CAMS -2.389 -1.115 9.745
+unopt CMS-FLUX -2.504 -3.067 9.745
+unopt COLA -2.254 -1.098 9.745
+unopt CSU -1.391 -3.067 9.745
+unopt CT -3.562 -0.875 9.745
+unopt NIES -3.127 -1.065 9.745
+unopt OU -2.113 0.675 9.745
+unopt TM5-4DVAR -2.01 -2.691 9.745
+unopt UT -2.705 -1.926 9.745
+unopt WOMBAT -2.099 -0.919 9.745
