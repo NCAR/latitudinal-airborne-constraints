@@ -1,0 +1,21 @@
+CSU: unavailable
+
+TM5-4DVAR: prior uncertainty (1 sigma) on the annual global total ocean flux was 0.38 PgC/year. For the Southern Ocean, it was 0.13 PgC/year. For the Pacific, 0.25 PgC/year. For the Atlantic, 0.13 PgC/year. Finally, for the Indian Ocean, it was 0.12 PgC/year.
+
+UT: provided 1x1 degree uncertainty file (aggregate assuming zero correlation among grids)
+
+Ames: global oceanic 1σ uncertainty of ∼0.3 PgC yr−1, no prior uncertainty correlation, inflated each per grid value in order for our global ocean total uncertainty to match the values suggested in the Global Carbon Project (GCP) (Friedlingstein et al., 2019).
+
+CAMS:  the error statistics for the open ocean correspond to a global air-sea flux 1-sigma uncertainty about 0.2 GtC∙yr-1 and are defined as follows: temporal correlations decay exponentially with a length of one month; spatial correlations follow an e-folding length of 1000 km; standard deviations are set to 0.04 gC∙m-2 per day.
+
+WOMBAT: global annual ocean prior uncertainty was around 0.065 PgC/yr
+
+CMS-Flux:  the global annual ocean flux uncertainty ranges from 0.13 to 0.15 GtC/year depending on the years. The scaling factors vary spatially and monthly. There is no spatial or temporal correlations in the prior error covariance.
+
+CT: Questions like are generally answered through our "regionfluxes" product, which is the only way to access prior or posterior uncertainties from our EnKF. This is because the native uncertainties are weekly and for ecoregions, and to compute uncertainties for large regions, such as the global ocean of this case, we aggregate up the weekly/30-ocean-region results. It turns out that we never ran the regionfluxes code for the v10 MIP simulations. For various reasons, we've never insisted on the meaningfulness of these uncertainties, and did not report them for the MIP. As a result, I cannot say for sure what the global ocean prior uncertainty was. However, the v10 MIP simulations inherited the CT2019B configuration. I think the best answer is therefore to explore the CT2019B prior uncertainties. You can see these at:
+https://gml.noaa.gov/ccgg/carbontracker/CT2019B/fluxtimeseries.php?region=All_Ocean#imagetable
+I think it would be fair to say that our ocean prior uncertainty was about ±1.6 PgC/yr (one sigma). We have a complex prior covariance structure (cf. https://gml.noaa.gov/ccgg/carbontracker/CT2019B/CT2019B_doc.php#tth_sEc8.2) derived from my ocean inversion. This computation does account for all the off-diagonal elements. Also, as discussed in https://gml.noaa.gov/ccgg/carbontracker/CT2019B/CT2019B_doc.php#tth_sEc8.3.1, this metric is unrealistically large and does not really capture our prior uncertainty for the global ocean.
+
+
+General points:
+Most (all?) inverse modelers key their prior ocean uncertainty off their prior ocean fluxes, but depending on how they chop up their state vector, it may not be easy for all modelers to calculate an annual uncertainty figure.

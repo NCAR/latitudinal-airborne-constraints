@@ -1,0 +1,206 @@
+
+R version 4.5.3 (2026-03-11) -- "Reassured Reassurer"
+Copyright (C) 2026 The R Foundation for Statistical Computing
+Platform: x86_64-redhat-linux-gnu
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+[Previously saved workspace restored]
+
+> # program to read in airborne 10-second merge data from models, trim for selected variables and output
+> 
+> 
+> # note on scales: ATom observations and OCO-2 V10MIP output are on WMO X2007, so adj2X2019 set to F here and adjMLO2X2007 set to T in harm_fit.r (for MLO). 
+> # Medusa CO2 data also require adjustment from SIO CO2 to WMO X2007 scale (after which adj2X2019 determines if they are also adjusted to X2019)
+> 
+> readac=function(adj2X2019=F,inclmed=T,inclpfp=T,outdir='OBS',tomfilenameout='RData.ATom.Mer.all_10X_trimmed_daac'){
++ 
++ 	# define columns to keep (used by inclmed and inclpfp too)
++ 	colsel=c('A.no','camp','slice','RF','flt','Year','Month','Day','Hour','Min','Sec','DOY','jday2016','YYYYMMDD','UTC_Start','UTC_Mean','UTC','G_LAT','G_LONG','G_ALT','GGLAT','GGLON','GGALT','GGTRK','HDG','P','PSXC','THETA','POT','CO2_NOAA','CO2_QCLS','CO2_AO2','CO2.X','CH4_NOAA','CH4_QCLS','N2O_QCLS','N2O_P','N2O_PECD','N2O_UGC','N2O_UCATS','H2O_UWV','H2O_DLH','H2Oppmv_vxl','VMR_VXL','H2O_NOAA','O3_UCATS','O3_CL','O3_ppb','O3_UO3','O3_UGC')
++ 
++ 	print(Sys.time());print('reading in mergefiles')
++ 
++ 	## read in ATom files
++ 	library('ncdf4')
++ 	atommergedir='LOCALDATA' # these are version 2.0 (21-08-26)
++ 	atommergefiles=c('MER10_DC8_ATom-1.nc','MER10_DC8_ATom-2.nc','MER10_DC8_ATom-3.nc','MER10_DC8_ATom-4.nc') 
++ 
++ 	atomvar=c('UTC_Start','Flight_Date','time','DLH-H2O/H2O_DLH','UCATS-H2O/H2O_UWV','QCLS-CH4-CO-N2O/N2O_QCLS','GCECD/N2O_PECD','UCATS-GC/N2O_UCATS','NOyO3-O3/O3_CL','UCATS-O3/O3_UCATS','MMS/G_ALT','RF','prof.no','MMS/P','MMS/POT','MMS/G_LAT','MMS/G_LONG','MMS/HDG','NOAA-Picarro/CO2_NOAA','QCLS-CO2/CO2_QCLS','AO2/CO2_AO2','CO2.X','NOAA-Picarro/CH4_NOAA','QCLS-CH4-CO-N2O/CH4_QCLS','UCATS-GC/CH4_UCATS','GCECD/CH4_PECD','GCECD/SF6_PECD','UCATS-GC/SF6_UCATS')
++ 
++ 	atommerge=NULL
++ 	for(i in c(1:4)){
++ 		atomnc=nc_open(paste(atommergedir,'/',atommergefiles[i],sep=''))
++ 		count=length(ncvar_get(atomnc,'UTC_Start'))
++ 		campdata=NULL
++ 		for(var in atomvar){
++ 			if(i==1&var=='UCATS-H2O/H2O_UWV'){ # no UCATS H2O on ATom-1
++ 				campdata=cbind(campdata,rep(NA,count))
++ 			} else {
++ 				campdata=cbind(campdata,ncvar_get(atomnc,var))
++ 			}
++ 		}
++ 		campdata=cbind(campdata,rep(i,count)) # A.no
++ 		nc_close(atomnc)
++ 		atommerge=rbind(atommerge,campdata)
++ 	}
++ 	atommerge=data.frame(atommerge,stringsAsFactors=F)
++ 	names(atommerge)=c(gsub('.*/','',atomvar),'A.no')
++ 
++ 	# add time variables
++ 	atommerge$Year=as.numeric(substr(atommerge$Flight_Date,1,4))
++ 	atommerge$Month=as.numeric(substr(atommerge$Flight_Date,5,6))
++ 	atommerge$Day=as.numeric(substr(atommerge$Flight_Date,7,8)) # Flight_Date is day of takeoff
++ 	atommerge$UTC_Mean=atommerge$UTC_Start+5
++ 	atomdt=as.POSIXlt(ISOdatetime(atommerge$Year,atommerge$Month,atommerge$Day,0,0,0,tz='UTC')+atommerge$UTC_Mean,tz='UTC')
++ 	# reset to account for flights over midnight UTC
++ 	atommerge$Year=as.POSIXlt(atomdt)$year+1900  
++ 	atommerge$Month=as.POSIXlt(atomdt)$mon+1
++ 	atommerge$Day=as.POSIXlt(atomdt)$mday # actual day (steps over midnight)
++ 	atommerge$Hour=as.POSIXlt(atomdt)$hour
++ 	atommerge$Min=as.POSIXlt(atomdt)$min
++ 	atommerge$Sec=as.POSIXlt(atomdt)$sec
++ 	atommerge$DOY=as.POSIXlt(atomdt)$yday+1 # atomdt corresponds to UTC_Mean
++ 	atommerge$DOY[atommerge$UTC_Mean>86400]=atommerge$DOY[atommerge$UTC_Mean>86400]-1 ## do not want DOY to jump a whole day over midnight
++ 	atommerge$jday2016=atommerge$time/86400
++ 	atommerge$YYYYMMDD=strftime(as.POSIXlt(atomdt),format='%Y%m%d',tz='UTC')
++ 
++ 	tommergefile=data.frame(atommerge)
++ 
++ 
++ 	print(range(tommergefile$DOY,na.rm=T))
++ 
++ 	tommergefile$THETA=tommergefile$POT
++ 	tommergefile$UTC=trunc(tommergefile$UTC_Start)
++ 	tommergefile$flt=tommergefile$RF
++ 	tommergefile$GGALT=tommergefile$G_ALT
++ 	tommergefile$GGLAT=tommergefile$G_LAT
++ 	tommergefile$GGLON=tommergefile$G_LONG
++ 	tommergefile$PSXC=tommergefile$P
++ 	tommergefile$THETA=tommergefile$POT
++ 
++ 	tommergefile=tommergefile[,is.element(colnames(tommergefile),colsel)]
++ 	tommergefile=tommergefile[,match(colsel,names(tommergefile),nomatch=F)] # reorder columns
++ 
++ 	if(adj2X2019){ ## convert aircraft obs from X2007 to X2019 scale
++ 		# from NOAA webpage: X2019 = 1.00079 * X2007 - 0.142
++ 		tommergefile$CO2_NOAA=tommergefile$CO2_NOAA*1.00079-0.142
++ 		tommergefile$CO2_QCLS=tommergefile$CO2_QCLS*1.00079-0.142
++ 		tommergefile$CO2_AO2=tommergefile$CO2_AO2*1.00079-0.142
++ 	}
++ 
++ 	## create ATom CO2 difference variables
++ 	tommergefile$CO2_AO2_m_CO2_NOAA=tommergefile$CO2_AO2-tommergefile$CO2_NOAA
++ 	tommergefile$CO2_QCLS_m_CO2_NOAA=tommergefile$CO2_QCLS-tommergefile$CO2_NOAA
++ 
++ 	## make CO2_OP
++ 	tommergefile$CO2_OP=tommergefile$CO2_NOAA # matching obspack
++ 	tommergefile$CO2_OP[tommergefile$A.no==1&(tommergefile$RF==1|tommergefile$RF==2)]=tommergefile$CO2_QCLS[tommergefile$A.no==1&(tommergefile$RF==1|tommergefile$RF==2)]
++ 
++ 
++ 	if(inclmed){
++ 
++ 		# add in MEDUSA data
++ 		print(Sys.time());print('adding in Medusa')
++ 
++ 		colsel=c(colsel,'CO2_MED')
++ 		# MED files also include in situ tracers, these get added inline to 10-sec variables - leave to allow for difference calculations
++ 
++ 		for(anum in c(1:4)){
++ 			print(paste('A',anum,sep=''))
++ 			campaign=paste('ATOM',anum,sep='')
++ 			med=read.table(paste('/h/eol/stephens/NCAR/VUV2/AO2/DATA/SCI/MEDCOMP/SIOADJ/MEDUSA_MERGE_',campaign,'.tbl',sep=''),header=T)
++ 			### must have run siomerge.r in MEDCOMP first
++ 			### move locally
++ 
++ 			## to adjust, use 2015 NCAR primary comparison (most recent)
++ 			# from /h/eol/stephens/NCAR/CALFAC/PRIMARIES/1912bkup/gmd-sio.r.Rout
++ 			# [1] "2015 fit:"
++ 			# [1]  1.082731e+00 -1.019421e-02  1.795693e-05
++ 			sio2gmd2=-1.795693e-05; sio2gmd1=1.019421e-02; sio2gmd0=-1.082731e+00
++ 			# print(400^2*sio2gmd2+400*sio2gmd1+sio2gmd0)
++ 			# at 400 ppm, Scripps O2 lab low by 0.12 ppm
++ 			print('Adjusting ATom CO2_MED to WMO (X2007) Scale, based on 2015 SIO/GMD analysis of NCAR primaries')
++ 			oldco2=med$CO2_MED
++ 			med$CO2_MED=med$CO2_MED^2*sio2gmd2+med$CO2_MED*sio2gmd1+sio2gmd0+med$CO2_MED
++ 			print(paste('offset at 400 ppm =',400^2*sio2gmd2+400*sio2gmd1+sio2gmd0))
++ 			print(paste('average offset =',mean(med$CO2_MED-oldco2,na.rm=T)))
++ 			print(paste('median offset =',median(med$CO2_MED-oldco2,na.rm=T)))
++ 			print(paste('sd offset =',sd(med$CO2_MED-oldco2,na.rm=T)))
++ 
++ 			if(adj2X2019){ ## convert aircraft obs to X2019 scale
++ 				# from NOAA webpage: X2019 = 1.00079 * X2007 - 0.142
++ 				med$CO2_MED=med$CO2_MED*1.00079-0.142
++ 			}
++ 			# trim to speed up:
++ 			med=med[,is.element(colnames(med),colsel)]
++ 			med$A.no=rep(anum,nrow(med))
++ 			# create ATom CO2 difference variable
++ 			med$CO2_NOAA[med$CO2_NOAA>1000]=NA #### two values 1962.9380 26723.8600 for some reason (rows 159:160 of ATOM1 file)
++ 			med$CO2_NOAA[med$wt.CO2_NOAA<0.5]=NA
++ 			med$CO2_MED_m_CO2_NOAA=med$CO2_MED-med$CO2_NOAA
++ 			print(paste('ATom-',anum,' CO2_AO2-CO2_MED:',mean(med$CO2_AO2-med$CO2_MED,na.rm=T),sep=''))
++ 			tommergefile=merge(tommergefile,med,all=T)
++ 
++ 		} # loop on anum
++ 
++ 	} # if(inclmed)
++ 
++ 
++ 	if(inclpfp){
++ 		# add in PFP data
++ 		print(Sys.time());print('adding in PFP')
++ 
++ 		colsel=c(colsel,'CO2_PFP')
++ 		# PFP files also include in situ tracers, these get added inline to 10-sec variables - leave to allow for difference calculations
++ 
++ 		tommergedir='/scr/sci/stephens/HUMERGE'
++ 		pfp=read.csv(paste(tommergedir,'/ATOM.Mor.PFP.all.tbl',sep='')) #ATOM.Mor.PFP.all.tbl -> Mor.PFP.all.at1234.2021-06-13.tbl
++ 		### read public file or move locally
++ 
++ 		pfp$DOY=trunc(pfp$jday2016)+1 # jday2016 is day of year since Dec. 31 2015 (Jan. 1, 2016 = 1) and fraction of year
++ 		pfp$DOY[pfp$A.no==2|pfp$A.no==3]=trunc(pfp$jday2016[pfp$A.no==2|pfp$A.no==3])+1-366
++ 		pfp$DOY[pfp$A.no==4]=trunc(pfp$jday2016[pfp$A.no==4])+1-366-365
++ 		pfp$DOY[pfp$UTC_Mean>86400]=pfp$DOY[pfp$UTC_Mean>86400]-1 ## do not want DOY to jump a whole day over midnight
++ 		pfp$Year=as.numeric(substr(pfp$YYYYMMDD,1,4))
++ 
++ 		pfp$THETA=pfp$POT
++ 		pfp$UTC=trunc(pfp$UTC_Start)
++ 		pfp$flt=pfp$RF
++ 		pfp$GGALT=pfp$G_ALT
++ 		pfp$GGLAT=pfp$G_LAT
++ 		pfp$GGLON=pfp$G_LONG
++ 		pfp$PSXC=pfp$P
++ 		pfp$THETA=pfp$POT
++ 			
++ 		if(adj2X2019){ ## convert aircraft obs to X2019 scale
++ 			# from NOAA webpage: X2019 = 1.00079 * X2007 - 0.142
++ 			pfp$CO2_PFP=pfp$CO2_PFP*1.00079-0.142
++ 		}
++ 
++ 		# trim to speed up:
++ 		pfp=pfp[,is.element(colnames(pfp),colsel)]
++ 		# create ATom CO2 difference variable
++ 		pfp$CO2_PFP_m_CO2_NOAA=pfp$CO2_PFP-pfp$CO2_NOAA
++ 		tommergefile=merge(tommergefile,pfp,all=T)
++ 
++ 	} # if(inclpfp)
++ 
++ 	save('tommergefile',file=paste(outdir,'/',tomfilenameout,sep=''))
++ 
++ } # end of readac() function
+> 
+> proc.time()
+   user  system elapsed 
+  3.589   0.314   3.880 
